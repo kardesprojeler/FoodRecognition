@@ -7,7 +7,7 @@ import os
 
 class frmPasteLabel(wx.Dialog):
     def __init__(self, parent, title, image, file_path, x_start, y_start, x_end, y_end):
-        super(frmPasteLabel, self).__init__(parent, title=title, size=(500, 500))
+        super(frmPasteLabel, self).__init__(parent, title=title, size=(300, 300),  style=wx.DEFAULT_FRAME_STYLE|wx.RESIZE_BORDER)
         self.image = image
         self.make_form()
         self.file_path = file_path
@@ -35,8 +35,10 @@ class frmPasteLabel(wx.Dialog):
         hbox1.Add(self.cbo_sinif, 1, wx.EXPAND | wx.ALIGN_LEFT | wx.ALL, 5)
         vbox.Add(hbox1)
 
+
         hbox2 = wx.BoxSizer(wx.HORIZONTAL)
-        imageCtrl = wx.StaticBitmap(panel, wx.ID_ANY, bitmap=self.image)
+        self.image.Rescale(120, 120)
+        imageCtrl = wx.StaticBitmap(panel, wx.ID_ANY, bitmap=self.image.ConvertToBitmap(3))
         hbox2.Add(imageCtrl, 1, wx.EXPAND | wx.ALIGN_LEFT | wx.ALL, 5)
         vbox.Add(hbox2)
 
@@ -67,17 +69,17 @@ class frmPasteLabel(wx.Dialog):
 
 class frmImageShower(wx.MDIChildFrame):
     def __init__(self, parent):
-        wx.MDIChildFrame.__init__(self, parent, title='Resimleri Göster', size=(350, 300))
+        wx.MDIChildFrame.__init__(self, parent, title='Resimleri Göster', style=wx.CAPTION|wx.MAXIMIZE|wx.DEFAULT_FRAME_STYLE)
         self.frame = wx.Frame(None, title='Photo Control')
         self.parent = parent
         self.panel = wx.Panel(self)
-        self.PhotoMaxSize = 240
         self.moving = False
         self.click = False
         self.create_widgets()
 
     def show_image(self, file_path):
         img = wx.Image(file_path, wx.BITMAP_TYPE_ANY)
+        img.Rescale(GeneralFlags.train_image_width.value, GeneralFlags.train_image_height.value)
         # scale the image, preserving the aspect ratio
 
         self.imageCtrl.SetBitmap(wx.Bitmap(img, wx.BITMAP_TYPE_ANY))
@@ -85,15 +87,13 @@ class frmImageShower(wx.MDIChildFrame):
         self.panel.Refresh()
 
     def create_widgets(self):
-        instructions = 'Browse for an image'
-        img = wx.Image(240, 240)
+        img = wx.Image(GeneralFlags.train_image_width.value, GeneralFlags.train_image_height.value)
         self.imageCtrl = wx.StaticBitmap(self.panel, wx.ID_ANY, wx.Bitmap(img))
 
         self.imageCtrl.Bind(wx.EVT_LEFT_DOWN, self.onLeftDown)
         self.imageCtrl.Bind(wx.EVT_LEFT_UP, self.onLeftUp)
         self.imageCtrl.Bind(wx.EVT_MOTION, self.OnMove)
 
-        instructLbl = wx.StaticText(self.panel, label=instructions)
         self.photoTxt = wx.TextCtrl(self.panel, size=(200, -1))
         browseBtn = wx.Button(self.panel, label='Browse')
         browseBtn.Bind(wx.EVT_BUTTON, self.onBrowse)
@@ -104,7 +104,6 @@ class frmImageShower(wx.MDIChildFrame):
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         self.mainSizer.Add(wx.StaticLine(self.panel, wx.ID_ANY),0, wx.ALL | wx.EXPAND, 5)
-        self.mainSizer.Add(instructLbl, 0, wx.ALL, 5)
         self.mainSizer.Add(self.imageCtrl, 0, wx.ALL, 5)
         self.sizer.Add(self.photoTxt, 0, wx.ALL, 5)
         self.sizer.Add(browseBtn, 0, wx.ALL, 5)
@@ -141,11 +140,16 @@ class frmImageShower(wx.MDIChildFrame):
     def onLeftUp(self, event):
         if self.moving and self.click:
             temp_images_path = r"C:\Users\BULUT\Documents\GitHub\FoodRecognition\images\temp_images\image.png"
-            image_crop = Image.open(self.photoTxt.GetValue()).crop((self.x_start, self.y_start, event.x, event.y))
+
+            image = Image.open(self.photoTxt.GetValue())
+            image = image.resize((GeneralFlags.train_image_width.value,
+                                 GeneralFlags.train_image_height.value), Image.ANTIALIAS)
+            image_crop = image.crop((self.x_start, self.y_start, event.x, event.y))
+
             image_crop.save(temp_images_path)
             image = wx.Image(temp_images_path)
 
-            with frmPasteLabel(self.parent, "Etiketle", image.ConvertToBitmap(3),
+            with frmPasteLabel(self.parent, "Etiketle", image,
                                self.photoTxt.GetValue(), self.x_start, self.y_start, event.x, event.y) as label_past:
                 label_past.ShowModal()
 

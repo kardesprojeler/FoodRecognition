@@ -672,6 +672,8 @@ class GeneralFlags(Enum):
     enable_function = False,
     train_mode = 'custom_loop'
     checkpoint_dir = r'C:\Users\BULUT\Documents\GitHub\YemekTanima\OutPuts\checkpoints'
+    train_image_height = 600
+    train_image_width = 800
 
 
 
