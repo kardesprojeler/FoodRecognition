@@ -1,7 +1,18 @@
-from tensorflow.python.client import device_lib
+class Zeynep:
+    def __init__(self, yemek_yapmak):
+        self.yemek_yapmak = yemek_yapmak
 
-def get_available_gpus():
-    local_device_protos = device_lib.list_local_devices()
-    return [x.name for x in local_device_protos if x.device_type == 'GPU']
+    def kakan(self):
+        print("asd")
 
-print(get_available_gpus())
+
+class durkan(Zeynep):
+    def __init__(self, yemek_pisirmek):
+        Zeynep.__init__(self, yemek_yapmak=yemek_pisirmek)
+
+    def kakan(self):
+        print("başka bir olay")
+
+
+durkan_nesnesi = durkan("bunu göndermek zorundasın")
+print(durkan_nesnesi.kakan())

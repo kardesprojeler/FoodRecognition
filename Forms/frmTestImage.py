@@ -1,13 +1,9 @@
-from Datas import Data
+from Datas.Data import *
 import wx
-from tkinter import messagebox
 
 class frmTestImage(wx.MDIChildFrame):
-    data = None
-
     def __init__(self, parent):
         wx.MDIChildFrame.__init__(self, parent, title='Test Resmi Ekle', size=(350, 250))
-        self.data = Data.Data()
         self.make_form()
 
     def make_form(self):
@@ -18,7 +14,7 @@ class frmTestImage(wx.MDIChildFrame):
         l1 = wx.StaticText(panel, -1, "Sınıf İsmi")
         hbox1.Add(l1, 1, wx.EXPAND | wx.ALIGN_LEFT | wx.ALL, 5)
 
-        self.siniflist = self.data.get_sinif_list()
+        self.siniflist = get_sinif_list()
         siniflar = []
 
         for sinif in self.siniflist:
@@ -44,4 +40,4 @@ class frmTestImage(wx.MDIChildFrame):
         label_number = self.siniflist[[s.sinifname for s in self.siniflist].index(
             self.cbo_sinif.GetValue()
         )].labelnumber
-        self.data.add_test_image(self, label_number)
+        add_test_image(self, label_number)

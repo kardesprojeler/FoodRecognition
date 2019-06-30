@@ -674,6 +674,7 @@ class GeneralFlags(Enum):
     checkpoint_dir = r'C:\Users\BULUT\Documents\GitHub\YemekTanima\OutPuts\checkpoints'
 
 
+
 class FasterRCNNConfig:
     def __init__(self):
         self.class_mapping = None
