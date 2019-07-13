@@ -31,7 +31,8 @@ cursor = cnxn.cursor()
 
 def get_sinif_list():
     array = []
-    cursor.execute("select * from tbl_01_01_sinif")
+    cursor.execute("select id, sinifname, foldername, fiyat, doviz = case when dovizref = 1 then 'TL' else 'USD' end "
+                   "from tbl_01_01_sinif")
     row = cursor.fetchone()
     while row:
         sinif = DataSinif()
@@ -39,6 +40,7 @@ def get_sinif_list():
         sinif.sinifname = row[1]
         sinif.foldername = row[2]
         sinif.fiyat = row[3]
+        sinif.doviz = row[4]
         array.append(sinif)
         row = cursor.fetchone()
     return array
@@ -89,18 +91,18 @@ def read_test_images(heigh, width):
     return np.array(images), np.array(labels)
 
 
-def insert_class(sinifname, foldername):
-    cursor.execute("select * from tbl_01_01_sinif where (sinifname = ? or " +
-                   "foldername = ?)", sinifname, foldername)
+def update_class(id, sinifname, foldername, fiyat, doviz):
+    cursor.execute("select * from tbl_01_01_sinif where (id = ?)", id)
     row = cursor.fetchone()
     if row:
-        wx.MessageBox('Böyle Bir Satır Mevcut', 'Attention', wx.OK | wx.ICON_WARNING)
-        pass
+        cursor.execute("update tbl_01_01_sinif set sinifname = ?, foldername = ?, fiyat = ?, dovizref = ? where id = ?",
+                       sinifname, foldername, fiyat, doviz, id)
+
     else:
-        cursor.execute("insert into tbl_01_01_sinif(sinifname, foldername) " +
-                       "values(?, ?)", sinifname, foldername)
+        cursor.execute("insert into tbl_01_01_sinif(sinifname, foldername, fiyat, dovizref) " +
+                       "values(?, ?, ?, ?)", sinifname, foldername, fiyat, doviz)
         cnxn.commit()
-    pass
+
 
 def getsinifcount():
     cursor.execute("select sinifcount = count(*) from tbl_01_01_sinif")
@@ -111,21 +113,10 @@ def getsinifcount():
     pass
 
 
-def add_data_class(class_name, foldername):
-    if class_name is not '' and foldername is not '':
-        if not os.path.exists(r"C:/Users/BULUT/Documents/GitHub/YemekTanima/images/" + foldername):
-            os.mkdir(r"C:/Users/BULUT/Documents/GitHub/YemekTanima/images/" + foldername)
-            insert_class(foldername, class_name)
-            pass
-        else:
-            wx.MessageBox('Bu sınıf ismi mevcut', 'Attention', wx.OK | wx.ICON_WARNING)
-            pass
-        pass
-    else:
-        wx.MessageBox('Alanları doldurunuz!', 'Attention', wx.OK | wx.ICON_WARNING)
-        pass
+def delete_class(id):
+    cursor.execute('delete tbl_01_01_sinif where id = ? ', id)
+    cnxn.commit()
     pass
-
 
 def add_training_file():
     src = filedialog.askopenfile()
@@ -259,9 +250,9 @@ class SampleSelector:
 
         for bbox in img_data['bboxes']:
 
-            cls_name = bbox['class']
+            cls_id = bbox['class_id']
 
-            if cls_name == self.curr_class:
+            if cls_id == self.curr_class:
                 class_in_img = True
                 self.curr_class = next(self.class_cycle)
                 break
@@ -356,7 +347,7 @@ def calc_rpn(C, img_data, width, height, resized_width, resized_height, img_leng
                             tw = np.log((gta[bbox_num, 1] - gta[bbox_num, 0]) / (x2_anc - x1_anc))
                             th = np.log((gta[bbox_num, 3] - gta[bbox_num, 2]) / (y2_anc - y1_anc))
 
-                        if img_data['bboxes'][bbox_num]['class'] != 'bg':
+                        if img_data['bboxes'][bbox_num]['class_id'] != 0:
 
                             # all GT boxes should be mapped to an anchor box, so we keep track of which anchor box was best
                             if curr_iou > best_iou_for_bbox[bbox_num]:
@@ -444,6 +435,20 @@ def calc_rpn(C, img_data, width, height, resized_width, resized_height, img_leng
 
     return np.copy(y_rpn_cls), np.copy(y_rpn_regr)
 
+
+def get_class_mapping(add_bg=True):
+    class_mapping = {}
+    for i, sinif in enumerate(get_sinif_list()):
+        class_mapping[sinif.id] = {}
+        class_mapping[sinif.id]["order"] = i
+        class_mapping[sinif.id]["class_name"] = sinif.sinifname
+
+    if add_bg:
+        class_mapping[0] = {}
+        class_mapping[0]["order"] = len(class_mapping) - 1
+        class_mapping[0]["class_name"] = "bg"
+
+    return class_mapping
 
 class threadsafe_iter:
     """Takes an iterator/generator and makes it thread-safe by
@@ -548,7 +553,7 @@ def augment(img_data, config, augment=True):
     img_data_aug = copy.deepcopy(img_data)
 
     img = cv2.imread(img_data_aug['filepath'])
-
+    img = cv2.resize(img, (GeneralFlags.train_image_width.value, GeneralFlags.train_image_height.value))
     if augment:
         rows, cols = img.shape[:2]
 
@@ -614,6 +619,7 @@ class DataSinif:
     sinifname = ""
     foldername = ""
     fiyat = 0
+    doviz = ""
     pass
 
 
@@ -671,10 +677,8 @@ class GeneralFlags(Enum):
     epoch = 3
     enable_function = False,
     train_mode = 'custom_loop'
-    checkpoint_dir = r'C:\Users\BULUT\Documents\GitHub\YemekTanima\OutPuts\checkpoints'
     train_image_height = 600
     train_image_width = 800
-
 
 
 class FasterRCNNConfig:
@@ -682,7 +686,7 @@ class FasterRCNNConfig:
         self.class_mapping = None
     verbose = True
 
-    network = 'SimpleModel'
+    network = 'resnet50'
 
     # setting for data augmentation
     use_horizontal_flips = False
@@ -728,12 +732,13 @@ class FasterRCNNConfig:
     def getClassMapping(self):
         return self.class_mapping
 
-    model_path = 'model_frcnn.vgg.hdf5'
+    model_path = r'C:\Users\BULUT\Documents\GitHub\FoodRecognition\OutPuts\model_frcnn.resnet.hdf5'
 
     lambda_rpn_regr = 1.0
     lambda_rpn_class = 1.0
 
     lambda_cls_regr = 1.0
     lambda_cls_class = 1.0
-
+    rpn_checkpoint_dir = r'C:\Users\BULUT\Documents\GitHub\FoodRecognition\OutPuts\RPNCheckpoints\rpn_checkpoints'
+    classifier_checkpoint_dir = r'C:\Users\BULUT\Documents\GitHub\FoodRecognition\OutPuts\ClasifierCheckpoints\classifier_checkpoint'
     epsilon = 1e-4

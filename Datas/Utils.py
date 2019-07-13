@@ -294,9 +294,9 @@ def calc_iou(R, img_data, C, class_mapping):
 
             if C.classifier_min_overlap <= best_iou < C.classifier_max_overlap:
                 # hard negative example
-                cls_name = 'bg'
+                cls_id = 0
             elif C.classifier_max_overlap <= best_iou:
-                cls_name = bboxes[best_bbox]['class']
+                cls_id = bboxes[best_bbox]['class_id']
                 cxg = (gta[best_bbox, 0] + gta[best_bbox, 1]) / 2.0
                 cyg = (gta[best_bbox, 2] + gta[best_bbox, 3]) / 2.0
 
@@ -311,14 +311,14 @@ def calc_iou(R, img_data, C, class_mapping):
                 print('roi = {}'.format(best_iou))
                 raise RuntimeError
 
-        class_num = class_mapping[cls_name]
+        #class_num = class_mapping[cls_name]
         class_label = len(class_mapping) * [0]
-        class_label[class_num] = 1
+        class_label[class_mapping[cls_id]["order"]] = 1
         y_class_num.append(copy.deepcopy(class_label))
         coords = [0] * 4 * (len(class_mapping) - 1)
         labels = [0] * 4 * (len(class_mapping) - 1)
-        if cls_name != 'bg':
-            label_pos = 4 * class_num
+        if cls_id != 0:
+            label_pos = 4 * class_mapping[cls_id]["order"]
             sx, sy, sw, sh = C.classifier_regr_std
             coords[label_pos:4+label_pos] = [sx*tx, sy*ty, sw*tw, sh*th]
             labels[label_pos:4+label_pos] = [1, 1, 1, 1]
@@ -333,7 +333,7 @@ def calc_iou(R, img_data, C, class_mapping):
 
     X = np.array(x_roi)
     Y1 = np.array(y_class_num)
-    Y2 = np.concatenate([np.array(y_class_regr_label),np.array(y_class_regr_coords)],axis=1)
+    Y2 = np.concatenate([np.array(y_class_regr_label), np.array(y_class_regr_coords)],axis=1)
 
     return np.expand_dims(X, axis=0), np.expand_dims(Y1, axis=0), np.expand_dims(Y2, axis=0), IoUs
 
@@ -473,28 +473,19 @@ def rpn_to_roi(rpn_layer, regr_layer, C, dim_ordering, use_regr=True, max_boxes=
 
     assert rpn_layer.shape[0] == 1
 
-    if dim_ordering == 'th':
-        (rows,cols) = rpn_layer.shape[2:]
-
-    elif dim_ordering == 'tf':
-        (rows, cols) = rpn_layer.shape[1:3]
+    (rows, cols) = rpn_layer.shape[1:3]
 
     curr_layer = 0
-    if dim_ordering == 'tf':
-        A = np.zeros((4, rpn_layer.shape[1], rpn_layer.shape[2], rpn_layer.shape[3]))
-    elif dim_ordering == 'th':
-        A = np.zeros((4, rpn_layer.shape[2], rpn_layer.shape[3], rpn_layer.shape[1]))
+    A = np.zeros((4, rpn_layer.shape[1], rpn_layer.shape[2], rpn_layer.shape[3]))
 
     for anchor_size in anchor_sizes:
         for anchor_ratio in anchor_ratios:
 
             anchor_x = (anchor_size * anchor_ratio[0])/C.rpn_stride
             anchor_y = (anchor_size * anchor_ratio[1])/C.rpn_stride
-            if dim_ordering == 'th':
-                regr = regr_layer[0, 4 * curr_layer:4 * curr_layer + 4, :, :]
-            else:
-                regr = regr_layer[0, :, :, 4 * curr_layer:4 * curr_layer + 4]
-                regr = np.transpose(regr, (2, 0, 1))
+
+            regr = regr_layer[0, :, :, 4 * curr_layer:4 * curr_layer + 4]
+            regr = np.transpose(regr, (2, 0, 1))
 
             X, Y = np.meshgrid(np.arange(cols), np.arange(rows))
 

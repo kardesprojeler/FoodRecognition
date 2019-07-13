@@ -250,9 +250,10 @@ class ResNet(Model):
 
         out = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(out)
 
-        out_class = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(nb_classes, activation='softmax',
-                                                                          kernel_initializer='zero'),
-                                                    name='dense_class_{}'.format(nb_classes))(out)
+        out_class = tf.keras.layers.TimeDistributed(
+            tf.keras.layers.Dense(nb_classes, activation='softmax', kernel_initializer='zero'),
+            name='dense_class_{}'.format(nb_classes))(out)
+
         # note: no regression target for bg class
         out_regr = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(4 * (nb_classes - 1), activation='linear',
                                                                          kernel_initializer='zero'),

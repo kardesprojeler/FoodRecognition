@@ -1,5 +1,4 @@
-from fileinput import filename
-
+from Forms.frmSinifEkle import frmSinifEkle
 from Datas.Data import *
 import wx
 from PIL import Image
@@ -60,7 +59,7 @@ class frmPasteLabel(wx.Dialog):
         self.add_label(label_number, self.x_start, self.y_start, self.x_end, self.y_end)
 
     def add_label(self, id, x_start, y_start, x_end, y_end):
-        with open(r'C:\Users\BULUT\Desktop\train_datas.txt', 'a', encoding="utf-8") as file:
+        with open(r'C:\Users\BULUT\Desktop\train_images.txt', 'a', encoding="utf-8") as file:
             file.write('\n' + self.file_path + ',' + str(x_start) + ',' + str(y_start) + ',' +
                        str(x_end) + ',' + str(y_end) + ',' + str(id))
 
@@ -69,7 +68,8 @@ class frmPasteLabel(wx.Dialog):
 
 class frmImageShower(wx.MDIChildFrame):
     def __init__(self, parent):
-        wx.MDIChildFrame.__init__(self, parent, title='Resimleri Göster', style=wx.CAPTION|wx.MAXIMIZE|wx.DEFAULT_FRAME_STYLE)
+        wx.MDIChildFrame.__init__(self, parent, title='Resimleri Göster',
+                                  style=wx.VSCROLL|wx.HSCROLL|wx.DEFAULT_FRAME_STYLE)
         self.frame = wx.Frame(None, title='Photo Control')
         self.parent = parent
         self.panel = wx.Panel(self)
@@ -99,6 +99,8 @@ class frmImageShower(wx.MDIChildFrame):
         browseBtn.Bind(wx.EVT_BUTTON, self.onBrowse)
         nextBtn = wx.Button(self.panel, label='Next')
         nextBtn.Bind(wx.EVT_BUTTON, self.onNext)
+        addClassBtn = wx.Button(self.panel, label='Sınıf Ekle')
+        addClassBtn.Bind(wx.EVT_BUTTON, self.onAddClass)
 
         self.mainSizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -108,6 +110,7 @@ class frmImageShower(wx.MDIChildFrame):
         self.sizer.Add(self.photoTxt, 0, wx.ALL, 5)
         self.sizer.Add(browseBtn, 0, wx.ALL, 5)
         self.sizer.Add(nextBtn, 0, wx.ALL, 5)
+        self.sizer.Add(addClassBtn, 0, wx.ALL, 5)
 
         self.mainSizer.Add(self.sizer, 0, wx.ALL, 5)
 
@@ -166,7 +169,7 @@ class frmImageShower(wx.MDIChildFrame):
             dir_name = os.path.dirname(self.photoTxt.GetValue())
             file_array = os.listdir(dir_name)
 
-            with open(r'C:\Users\BULUT\Desktop\train_datas.txt', encoding='utf-8') as file:
+            with open(r'C:\Users\BULUT\Desktop\train_images.txt', encoding='utf-8') as file:
                 content = file.read()
             for file_name in file_array:
                 if file_name.endswith(".jpg") or file_name.endswith(".png") or file_name.endswith(".gif"):
@@ -179,3 +182,7 @@ class frmImageShower(wx.MDIChildFrame):
                     if show:
                         self.show_image(file_path)
                         break
+
+    def onAddClass(self, event):
+        frm = frmSinifEkle(self.parent)
+        frm.Show(True)
