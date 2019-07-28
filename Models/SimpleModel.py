@@ -1,6 +1,5 @@
 from Datas.Data import *
-import os
-import wx
+from Datas.Utils import *
 from Core.Model import Model
 
 
@@ -18,56 +17,26 @@ class SimpleModel(Model):
         self.image_deep = image_deep
         self.batch_size = batch_size
         self.save_path = save_path
-        self.make_model()
-
-    def call(self, x: tf.Tensor, training: bool = True):
-        x = self.conv1(tf.cast(x, tf.float32))
-        x = self.batchnorm1(x, training=training)
-        x = tf.nn.relu(x)
-        x = self.conv2(x)
-        x = self.batchnorm2(x, training=training)
-        x = tf.nn.relu(x)
-        x = self.conv3(x)
-        x = self.batchnorm3(x, training=training)
-        x = tf.nn.relu(x)
-        x = self.flattened(x)
-        x = self.fc1(x)
-        x = self.fc2(x)
-        return self.fc_out(x)
+        self.prepare_layer()
 
     def is_model_prepared(self):
             return self.sess is not None
 
-    def global_variable_initializer(self):
-        checkpoint_path = 'checkpoints/'
-        if not os.path.exists(checkpoint_path):
-            os.mkdir(checkpoint_path)
-        self.save_path = os.path.join(checkpoint_path, 'yemek_tanima')
-        self.saver = tf.train.Saver()
+    def prepare_layer(self):
+        self.num_class = len(get_sinif_list())
+        self.add_layer(self.conv_layer(24))
+        self.add_layer(tf.keras.layers.BatchNormalization())
+        self.add_layer(self.conv_layer(48))
+        self.add_layer(tf.keras.layers.BatchNormalization())
+        self.add_layer(self.conv_layer(24))
+        self.add_layer(tf.keras.layers.BatchNormalization())
 
-        try:
-            print("Checkpoint Yükleniyor")
-            latest_checkpoint = tf.train.latest_checkpoint(checkpoint_dir=checkpoint_path)
-            self.saver.restore(self.sess, save_path=latest_checkpoint)
-        except:
-            print("Checkpoint bulunamadı")
-            self.sess.run()
+        self.add_layer(tf.keras.layers.Flatten())
 
-    def make_model(self):
-        self.num_class = getsinifcount()
-        self.conv1 = self.conv_layer(24)
-        self.batchnorm1 = tf.keras.layers.BatchNormalization()
-        self.conv2 = self.conv_layer(48)
-        self.batchnorm2 = tf.keras.layers.BatchNormalization()
-        self.conv3 = self.conv_layer(24)
-        self.batchnorm3 = tf.keras.layers.BatchNormalization()
+        self.add_layer(self.dense_layer(64, activation='relu'))
+        self.add_layer(self.dense_layer(32, activation='relu'))
 
-        self.flattened = tf.keras.layers.Flatten()
-
-        self.fc1 = self.dense_layer(64, activation='relu')
-        self.fc2 = self.dense_layer(32, activation='relu')
-
-        self.fc_out = self.dense_layer(self.num_class, activation='softmax')
+        self.add_layer(self.dense_layer(2, activation='softmax'))
 
     def conv_layer(self, num_filters):
         return tf.keras.layers.Conv2D(num_filters,
@@ -85,51 +54,26 @@ class SimpleModel(Model):
         pass
 
 
-    def test_accuracy(self):
-        self.dt.read_test_images(self.image_height, self.image_width)
-        x_batch, y_batch = self.dt.random_batch(self.batch_size, len(self.dt.test_images), is_training=False,
-                                                append_preprocess=False)
-        feed_dict_test = {self.x: x_batch, self.y_true: y_batch, self.phase: False}
-        acc = self.sess.run(self.accuracy, feed_dict=feed_dict_test)
-        print('Testing accuracy:', acc)
+class RPN(Model):
+    def __init__(self):
+        super(RPN, self).__init__()
+        self.prepare_layer()
 
-    def test_accuracy_for_one_image(self):
-        x_batch = self.dt.read_image(self.image_width, self.image_height)
-
-        graph = tf.get_default_graph()
-
-        y_pred = graph.get_tensor_by_name("y_pred:0")
-
-        y_test_images = np.zeros((1, 10))
-        feed_dict_test = {self.x: x_batch, self.y_true: y_test_images, self.phase: False}
-
-        result = self.sess.run(y_pred, feed_dict=feed_dict_test)
-
-        probability = np.max(result)
-        sinif_one_hot = np.argmax(result, 1)
-
-        sinif_name = self.dt.get_sinif_list()[sinif_one_hot[0]].sinifname
-
-        wx.MessageBox((probability * 100).__str__() + " " + sinif_name, 'Bilgilendirme', wx.OK | wx.ICON_INFORMATION)
-
-    def test_accuracy_for_tray(self):
-        tray_images = self.dt.get_fragment_tray_images(self.image_height, self.image_width)
-
-        y_pred = tf.get_default_graph().get_tensor_by_name("y_pred:0")
-        toplam_fiyat = 0
-        y_test_images = np.zeros((1, 10))
-        for image in tray_images:
-
-            feed_dict_test = {self.x: image, self.y_true: y_test_images, self.phase: False}
-
-            result = self.sess.run(y_pred, feed_dict=feed_dict_test)
-
-            probability = np.max(result)
-            sinif_one_hot = np.argmax(result, 1)
-
-            sinif_name = self.dt.get_sinif_list()[sinif_one_hot[0]].sinifname
-            toplam_fiyat += self.dt.get_sinif_list()[sinif_one_hot[0]].fiyat
-
-            wx.MessageBox((probability * 100).__str__() + " " + sinif_name, 'Bilgilendirme', wx.OK | wx.ICON_INFORMATION)
-
-        wx.MessageBox('Toplam Fiyat: ' + toplam_fiyat.__str__(), 'Bilgilendirme', wx.OK | wx.ICON_INFORMATION)
+    def prepare_layer(self):
+        self.add_layer(tf.keras.layers.ZeroPadding2D((3, 3)))
+        self.add_layer(tf.keras.layers.Convolution2D(64, (7, 7), strides=(2, 2), name='conv1', trainable=True))
+        self.add_layer(FixedBatchNormalization(axis=3, name='bn_conv1'))
+        self.add_layer(tf.keras.layers.Activation('relu1'))
+        self.add_layer(tf.keras.layers.MaxPooling2D((3, 3), strides=(2, 2)))
+        self.add_layer(tf.keras.layers.Convolution2D(64, (1, 1), strides=(1, 1), name='conv2', trainable=True))
+        self.add_layer(FixedBatchNormalization(axis=3, name='bn_conv2'))
+        self.add_layer(tf.keras.layers.Activation('relu2'))
+        self.add_layer(tf.keras.layers.Convolution2D(64, (3, 3), padding='same', name='conv3', trainable=True))
+        self.add_layer(FixedBatchNormalization(axis=3, name='bn_conv3'))
+        self.add_layer(tf.keras.layers.Activation('relu3'))
+        self.add_layer(tf.keras.layers.Convolution2D(256, (1, 1), name='conv4', trainable=True))
+        self.add_layer(FixedBatchNormalization(axis=3, name='bn_conv4'))
+        self.add_layer(tf.keras.layers.Activation('relu4'))
+        self.add_layer(tf.keras.layers.Convolution2D(64, (1, 1), name='conv5', trainable=True))
+        self.add_layer(FixedBatchNormalization(axis=3, name='bn_conv4'))
+        self.add_layer(tf.keras.layers.Activation('relu'))

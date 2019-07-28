@@ -46,14 +46,6 @@ def get_sinif_list():
     return array
 
 
-def one_hot_label(sinif, siniflist):
-    label = np.zeros((siniflist.__len__(),), dtype=int)
-    finding_index = siniflist.index(sinif)
-    label[finding_index] = 1
-    return label
-    pass
-
-
 def read_train_images(heigh, width):
     siniflist = get_sinif_list()
     images = []
@@ -91,6 +83,45 @@ def read_test_images(heigh, width):
     return np.array(images), np.array(labels)
 
 
+def get_data_from_file(file_path):
+    all_imgs = {}
+    classes_count = {}
+
+    with open(file_path, 'r', encoding="utf-8") as f:
+
+        print('Parsing annotation files')
+
+        for line in f:
+            line_split = line.strip().split(',')
+            (filename, x1, y1, x2, y2, class_id) = line_split
+
+            if class_id not in classes_count:
+                classes_count[class_id] = 1
+            else:
+                classes_count[class_id] += 1
+
+            if filename not in all_imgs:
+                all_imgs[filename] = {}
+
+                img = cv2.imread(filename)
+                (rows, cols) = img.shape[:2]
+                all_imgs[filename]['filepath'] = filename
+                all_imgs[filename]['width'] = cols
+                all_imgs[filename]['height'] = rows
+                all_imgs[filename]['bboxes'] = []
+            all_imgs[filename]['bboxes'].append(
+                {'class_id': int(class_id), 'x1': float(x1), 'x2': float(x2), 'y1': float(y1), 'y2': float(y2)})
+
+        all_data = []
+        for key in all_imgs:
+            all_data.append(all_imgs[key])
+
+        if 'bg' not in classes_count:
+            classes_count["bg"] = 0
+
+        return all_data, classes_count
+
+
 def update_class(id, sinifname, foldername, fiyat, doviz):
     cursor.execute("select * from tbl_01_01_sinif where (id = ?)", id)
     row = cursor.fetchone()
@@ -102,15 +133,6 @@ def update_class(id, sinifname, foldername, fiyat, doviz):
         cursor.execute("insert into tbl_01_01_sinif(sinifname, foldername, fiyat, dovizref) " +
                        "values(?, ?, ?, ?)", sinifname, foldername, fiyat, doviz)
         cnxn.commit()
-
-
-def getsinifcount():
-    cursor.execute("select sinifcount = count(*) from tbl_01_01_sinif")
-    row = cursor.fetchone()
-    if row is not None:
-        return row[0]
-    return 0
-    pass
 
 
 def delete_class(id):

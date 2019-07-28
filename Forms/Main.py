@@ -3,7 +3,7 @@ import wx
 import Forms.frmTestImage as frmImage
 from Forms.frmSinifEkle import frmSinifEkle
 from Forms.frmPasteLabel import frmImageShower
-
+from Deneme.test_fasterrcnn import *
 class Main(wx.MDIParentFrame):
     def __init__(self):
         wx.MDIParentFrame.__init__(self, None, -1, "Resim Tanıma",
@@ -26,8 +26,8 @@ class Main(wx.MDIParentFrame):
         menu_model.Append(2001, "Tahmin Yap")
         menubar.Append(menu_model, "Model")
 
-        self.Bind(wx.EVT_MENU, self.train_model, id=2000)
-        self.Bind(wx.EVT_MENU, train_model, id=2001)
+        self.Bind(wx.EVT_MENU, train_model, id=2000)
+        self.Bind(wx.EVT_MENU, self.test_model, id=2001)
 
         menu_model = wx.Menu()
         menu_model.Append(3000, "Hakkımızda")
@@ -50,12 +50,6 @@ class Main(wx.MDIParentFrame):
         form = frmImage.frmTestImage(self)
         form.Show(True)
 
-    def test_model(self, evt):
-        if self.model.is_model_prepared():
-            self.model.test_accuracy_for_one_image()
-        else:
-            wx.MessageBox('Model Oluşturulmamış!', 'Bilgilendirme', wx.OK | wx.ICON_INFORMATION)
-
     def test_model_for_tray(self, evt):
         if self.model.is_model_prepared():
             self.model.test_accuracy_for_tray()
@@ -65,6 +59,9 @@ class Main(wx.MDIParentFrame):
     def paste_label(self, evt):
         form = frmImageShower(self)
         form.Show(True)
+
+    def test_model(self, env):
+        test_model()
 
 if __name__ == '__main__':
     app = wx.App()

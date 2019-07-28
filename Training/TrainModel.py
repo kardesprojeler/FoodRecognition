@@ -147,6 +147,8 @@ def main(model_name, epochs, enable_function, train_mode):
                          DenseNetFlags.pool_initial.value, DenseNetFlags.include_top.value)
         batch_size = DenseNetFlags.batch_size.value
         pass
+    elif model_name == 'ResNet':
+        pass
 
     strategy = tf.distribute.MirroredStrategy()
 
