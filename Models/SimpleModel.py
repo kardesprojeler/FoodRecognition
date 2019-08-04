@@ -22,8 +22,14 @@ class SimpleModel(Model):
     def is_model_prepared(self):
             return self.sess is not None
 
+
+class Classifier(Model):
+    def __init__(self):
+        super(Classifier, self).__init__()
+        self.prepare_layer()
+
     def prepare_layer(self):
-        self.num_class = len(get_sinif_list())
+        num_class = len(get_sinif_list())
         self.add_layer(self.conv_layer(24))
         self.add_layer(tf.keras.layers.BatchNormalization())
         self.add_layer(self.conv_layer(48))
@@ -36,7 +42,7 @@ class SimpleModel(Model):
         self.add_layer(self.dense_layer(64, activation='relu'))
         self.add_layer(self.dense_layer(32, activation='relu'))
 
-        self.add_layer(self.dense_layer(2, activation='softmax'))
+        self.add_layer(self.dense_layer(num_class, activation='softmax'))
 
     def conv_layer(self, num_filters):
         return tf.keras.layers.Conv2D(num_filters,

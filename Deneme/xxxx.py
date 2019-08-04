@@ -56,9 +56,10 @@ class MyActivation(Own_Layer, Tensor_Activation):
         print("my activation function çalıştı")
 
 
+def deneme(*names):
+    for name in names:
+        print(name)
+
+
 if __name__ == '__main__':
-    myactivation = MyActivation()
-    myactivation()
-    myactivation.deneme()
-    myactivation.another_method()
-    myactivation.benim_layerde_olan_function()
+   deneme("name1,", "name2")
