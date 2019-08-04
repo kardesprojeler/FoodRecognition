@@ -107,7 +107,7 @@ all_imgs = []
 
 classes = ["Pilav", "Makarna", "bg"]
 
-bbox_threshold = 0.93
+bbox_threshold = 0.9
 
 visualise = True
 

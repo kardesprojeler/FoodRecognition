@@ -1,6 +1,5 @@
 from __future__ import print_function
 from __future__ import absolute_import
-
 from Core.Model import Model
 from keras import backend as K
 from Datas.Utils import RoiPoolingConv

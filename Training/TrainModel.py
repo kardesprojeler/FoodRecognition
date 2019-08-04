@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import tensorflow as tf  # TF2
 
-assert tf.__version__.startswith('2')
 from absl import app
 from Models.DenseNet import DenseNet
 from Models.SimpleModel import SimpleModel

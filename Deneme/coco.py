@@ -1,4 +1,3 @@
-from __future__ import division
 import pprint
 import sys
 import time
@@ -8,7 +7,6 @@ from Datas.Utils import *
 from keras.utils import generic_utils
 import tensorflow as tf
 
-sys.setrecursionlimit(40000)
 
 parser = OptionParser()
 
@@ -82,7 +80,7 @@ def get_data(input_path):
         return all_data, classes_count
 
 
-all_imgs, classes_count = get_data(r'C:\Users\BULUT\Desktop\train_images.txt')
+all_imgs, classes_count = get_data(r'C:\Users\Durkan\Desktop\train_images.txt')
 
 random.shuffle(all_imgs)
 
@@ -114,13 +112,14 @@ model_classifier = tf.keras.models.Model([img_input, roi_input], classifier)
 # this is a model that holds both the RPN and the classifier, used to load/save weights for the models
 model_all = tf.keras.models.Model([img_input, roi_input], rpn[:2] + classifier)
 
-try:
-    print('loading weights from {}'.format(FasterRCNNConfig.model_path))
-    model_rpn.load_weights(FasterRCNNConfig.model_path, by_name=True)
-    model_classifier.load_weights(FasterRCNNConfig.model_path, by_name=True)
-except:
-    print('Could not load pretrained model weights. Weights can be found in the keras application folder '
-          'https://github.com/fchollet/keras/tree/master/keras/applications')
+if os.path.exists(FasterRCNNConfig.model_path):
+    try:
+        print('loading weights from {}'.format(FasterRCNNConfig.model_path))
+        model_rpn.load_weights(FasterRCNNConfig.model_path, by_name=True)
+        model_classifier.load_weights(FasterRCNNConfig.model_path, by_name=True)
+    except:
+        print('Could not load pretrained model weights. Weights can be found in the keras application folder '
+              'https://github.com/fchollet/keras/tree/master/keras/applications')
 
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-5)
@@ -132,7 +131,7 @@ model_classifier.compile(optimizer=optimizer_classifier,
 model_all.compile(optimizer='sgd', loss='mae')
 
 epoch_length = 50
-num_epochs = 10
+num_epochs = 5
 iter_num = 0
 
 losses = np.zeros((epoch_length, 5))

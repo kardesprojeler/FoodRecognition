@@ -20,7 +20,7 @@ FLAGS = flags.FLAGS
 
 conn_str = (
     r'DRIVER={SQL Server};'
-    r'SERVER=localhost\SQLEXPRESS;'
+    r'SERVER=LAPTOP-1CAUHSG4;'
     r'DATABASE=YemekTanima;'
     r'Trusted_Connection=True;'
     )
@@ -746,7 +746,7 @@ class FasterRCNNConfig:
 
     # overlaps for classifier ROIs
     classifier_min_overlap = 0.1
-    classifier_max_overlap = 0.5
+    classifier_max_overlap = 0.7
 
     def setClassMapping(self, value):
         self.class_mapping = value
@@ -754,13 +754,13 @@ class FasterRCNNConfig:
     def getClassMapping(self):
         return self.class_mapping
 
-    model_path = r'C:\Users\BULUT\Documents\GitHub\FoodRecognition\OutPuts\model_frcnn.resnet.hdf5'
+    model_path = r'C:\Users\Durkan\Documents\GitHub\FoodRecognition\OutPuts\model_frcnn.resnet.hdf5'
 
     lambda_rpn_regr = 1.0
     lambda_rpn_class = 1.0
 
     lambda_cls_regr = 1.0
     lambda_cls_class = 1.0
-    rpn_checkpoint_dir = r'C:\Users\BULUT\Documents\GitHub\FoodRecognition\OutPuts\RPNCheckpoints\rpn_checkpoints'
-    classifier_checkpoint_dir = r'C:\Users\BULUT\Documents\GitHub\FoodRecognition\OutPuts\ClasifierCheckpoints\classifier_checkpoint'
+    rpn_checkpoint_dir = r'C:\Users\Durkan\Documents\GitHub\FoodRecognition\OutPuts\RPNCheckpoints\rpn_checkpoints'
+    classifier_checkpoint_dir = r'C:\Users\Durkan\Documents\GitHub\FoodRecognition\OutPuts\ClasifierCheckpoints\classifier_checkpoint'
     epsilon = 1e-4

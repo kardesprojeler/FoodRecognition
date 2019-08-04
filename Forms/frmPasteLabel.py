@@ -59,7 +59,7 @@ class frmPasteLabel(wx.Dialog):
         self.add_label(label_number, self.x_start, self.y_start, self.x_end, self.y_end)
 
     def add_label(self, id, x_start, y_start, x_end, y_end):
-        with open(r'C:\Users\BULUT\Desktop\train_images.txt', 'a', encoding="utf-8") as file:
+        with open(r'C:\Users\Durkan\Desktop\train_images.txt', 'a', encoding="utf-8") as file:
             file.write('\n' + self.file_path + ',' + str(x_start) + ',' + str(y_start) + ',' +
                        str(x_end) + ',' + str(y_end) + ',' + str(id))
 
@@ -76,6 +76,8 @@ class frmImageShower(wx.MDIChildFrame):
         self.moving = False
         self.click = False
         self.create_widgets()
+        self.image_path_list_temp = []
+        self.image_path_list_order_index = 0
 
     def show_image(self, file_path):
         img = wx.Image(file_path, wx.BITMAP_TYPE_ANY)
@@ -130,6 +132,10 @@ class frmImageShower(wx.MDIChildFrame):
 
         if dialog.ShowModal() == wx.ID_OK:
             self.onView(dialog.GetPath())
+            self.image_path_list_temp = os.listdir(os.path.dirname(dialog.GetPath()))
+            if os.path.dirname(dialog.GetPath()) != os.path.dirname(self.photoTxt.GetValue()):
+                self.image_path_list_order_index = 0
+
         dialog.Destroy()
 
     def onView(self, file_path):
@@ -142,7 +148,7 @@ class frmImageShower(wx.MDIChildFrame):
 
     def onLeftUp(self, event):
         if self.moving and self.click:
-            temp_images_path = r"C:\Users\BULUT\Documents\GitHub\FoodRecognition\images\temp_images\image.png"
+            temp_images_path = r"C:\Users\Durkan\Documents\GitHub\FoodRecognition\images\temp_images\image.png"
 
             image = Image.open(self.photoTxt.GetValue())
             image = image.resize((GeneralFlags.train_image_width.value,
@@ -165,23 +171,15 @@ class frmImageShower(wx.MDIChildFrame):
         return
 
     def onNext(self, event):
-        if self.photoTxt.GetValue() != "":
-            dir_name = os.path.dirname(self.photoTxt.GetValue())
-            file_array = os.listdir(dir_name)
+        if len(self.image_path_list_temp) > 0:
+            if self.image_path_list_order_index == len(self.image_path_list_temp) - 1:
+                if wx.MessageBox('Bu klasördeki bütün dosyalar etiketlendi yeniden etiketlemek istermisiniz!',
+                                 'Attention', wx.YES_NO | wx.ICON_WARNING) == wx.ID_YES:
+                    self.image_path_list_order_index = 0
 
-            with open(r'C:\Users\BULUT\Desktop\train_images.txt', encoding='utf-8') as file:
-                content = file.read()
-            for file_name in file_array:
-                if file_name.endswith(".jpg") or file_name.endswith(".png") or file_name.endswith(".gif"):
-                    file_path = os.path.join(dir_name, file_name)
-                    show = True
-                    for line in content.split('\n'):
-                        dir = line.split(',')[0]
-                        if dir == file_path:
-                            show = False
-                    if show:
-                        self.show_image(file_path)
-                        break
+            file_path = self.image_path_list_temp[self.image_path_list_order_index]
+            self.show_image(os.path.join(os.path.dirname(self.photoTxt.GetValue()), file_path))
+            self.image_path_list_order_index += 1
 
     def onAddClass(self, event):
         frm = frmSinifEkle(self.parent)
