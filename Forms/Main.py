@@ -26,7 +26,7 @@ class Main(wx.MDIParentFrame):
         menu_model.Append(2001, "Tahmin Yap")
         menubar.Append(menu_model, "Model")
 
-        self.Bind(wx.EVT_MENU, train_model, id=2000)
+        self.Bind(wx.EVT_MENU, self.train_model, id=2000)
         self.Bind(wx.EVT_MENU, self.test_model, id=2001)
 
         menu_model = wx.Menu()
@@ -35,12 +35,8 @@ class Main(wx.MDIParentFrame):
 
         self.SetMenuBar(menubar)
 
-    def train_model(self, evt):
-        if not self.model.is_model_prepared():
-            self.model.make_model()
-            wx.MessageBox('Model Oluşturuldu', 'Bilgilendirme', wx.OK | wx.ICON_INFORMATION)
-        else:
-            wx.MessageBox('Oluşturulmuş Bir Model Mevcut!', 'Bilgilendirme', wx.OK | wx.ICON_INFORMATION)
+    def train_model(self, argv):
+        train_model('SimpleModel', argv)
 
     def add_class(self, evt):
         form = frmSinifEkle(self)

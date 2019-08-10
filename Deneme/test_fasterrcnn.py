@@ -95,9 +95,9 @@ model_classifier_only = tf.keras.models.Model([feature_map_input, roi_input], cl
 
 model_classifier = tf.keras.models.Model([feature_map_input, roi_input], classifier)
 
-print('Loading weights from {}'.format(C.model_path))
-model_rpn.load_weights(C.model_path, by_name=True)
-model_classifier.load_weights(C.model_path, by_name=True)
+#print('Loading weights from {}'.format(C.model_path))
+#model_rpn.load_weights(C.model_path, by_name=True)
+#model_classifier.load_weights(C.model_path, by_name=True)
 #model_classifier_only.load_weights(C.model_path, by_name=True)
 
 model_rpn.compile(optimizer='sgd', loss='mse')

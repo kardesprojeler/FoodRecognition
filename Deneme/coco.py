@@ -40,46 +40,6 @@ from Models.ResNet import ResNet as nn
 
 class_mapping = get_class_mapping()
 
-
-def get_data(input_path):
-    all_imgs = {}
-    classes_count = {}
-
-    with open(input_path, 'r', encoding="utf-8") as f:
-
-        print('Parsing annotation files')
-
-        for line in f:
-            line_split = line.strip().split(',')
-            (filename, x1, y1, x2, y2, class_id) = line_split
-
-            if class_id not in classes_count:
-                classes_count[class_id] = 1
-            else:
-                classes_count[class_id] += 1
-
-            if filename not in all_imgs:
-                all_imgs[filename] = {}
-
-                img = cv2.imread(filename)
-                (rows, cols) = img.shape[:2]
-                all_imgs[filename]['filepath'] = filename
-                all_imgs[filename]['width'] = cols
-                all_imgs[filename]['height'] = rows
-                all_imgs[filename]['bboxes'] = []
-            all_imgs[filename]['bboxes'].append(
-                {'class_id': int(class_id), 'x1': float(x1), 'x2': float(x2), 'y1': float(y1), 'y2': float(y2)})
-
-        all_data = []
-        for key in all_imgs:
-            all_data.append(all_imgs[key])
-
-        if 'bg' not in classes_count:
-            classes_count["bg"] = 0
-
-        return all_data, classes_count
-
-
 all_imgs, classes_count = get_data(r'C:\Users\Durkan\Desktop\train_images.txt')
 
 random.shuffle(all_imgs)
@@ -88,8 +48,7 @@ num_imgs = len(all_imgs)
 
 model = nn()
 
-data_gen_train = get_anchor_gt(all_imgs, classes_count, FasterRCNNConfig, model.get_img_output_length, 'tf', mode='train')
-
+data_gen_train = get_anchor_gt(all_imgs, classes_count, FasterRCNNConfig, model.get_img_output_length)
 
 input_shape_img = (GeneralFlags.train_image_height.value, GeneralFlags.train_image_width.value, 3)
 
