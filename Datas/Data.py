@@ -89,11 +89,14 @@ def get_datasets(strategy, batch_size, get_img_output_length):
     all_imgs, classes_count = get_data(r'C:\Users\Durkan\Desktop\train_images.txt')
     imgs, y_class, y_regr, augments = get_anchor_gt(all_imgs, classes_count, FasterRCNNConfig, get_img_output_length)
 
-    # Numpy defaults to dtype=float64; TF defaults to float32. Stick with float32.
-    #train_dataset = tf.data.Dataset.from_tensors((imgs, y_class, y_regr)).shuffle(len(imgs)).batch(batch_size)
-    #train_dist_dataset = strategy.experimental_distribute_dataset(train_dataset)
+    #Numpy defaults to dtype=float64; TF defaults to float32. Stick with float32.
+    imgs, y_class, y_regr = np.array(imgs), np.array(y_class), np.array(y_regr)
+    imgs, y_class, y_regr = imgs.astype(float), y_class.astype(float), y_regr.astype(float)
 
-    return imgs, y_class, y_regr, augments
+    train_dataset = tf.data.Dataset.from_tensors((imgs, y_class, y_regr)).shuffle(len(imgs)).batch(batch_size)
+    train_dist_dataset = strategy.experimental_distribute_dataset(train_dataset)
+
+    return train_dist_dataset, augments
 
 
 def read_train_images(heigh, width):
@@ -694,7 +697,7 @@ class DataSinif:
 
 class SimpleModelFlags(Enum):
     buffer_size = 1000
-    batch_size = 20
+    batch_size = 1
     init_filter = (3, 3)
     stride = (1, 1)
     save_path = None
@@ -720,7 +723,7 @@ class SimpleModelFlags(Enum):
 
 class DenseNetFlags(Enum):
     buffer_size = 1000
-    batch_size = 10
+    batch_size = 1
     init_filter = (3, 3)
     stride = (1, 1)
     save_path = None

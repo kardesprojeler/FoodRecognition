@@ -6,8 +6,9 @@ from absl import app
 from Models.DenseNet import DenseNet
 from Models.SimpleModel import SimpleModel
 from Datas.Data import *
+from Datas.Utils import *
 from tensorflow.python import keras
-
+from keras.utils import generic_utils
 
 class Train(object):
     """Train class.
@@ -21,7 +22,7 @@ class Train(object):
         self.epochs = epochs
         self.enable_function = enable_function
         self.autotune = tf.data.experimental.AUTOTUNE
-        self.loss_object = tf.keras.losses.SparseCategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
+        self.loss_object = tf.keras.losses.SparseCategoricalCrossentropy(reduction=tf.losses.Reduction.NONE)
         self.optimizer = tf.train.GradientDescentOptimizer(0.001)
         self.training_loss = tf.keras.metrics.Mean("training_loss", dtype=tf.float32)
         self.training_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
@@ -44,25 +45,81 @@ class Train(object):
 
         return tf.reduce_sum(loss_) * 1. / batch_size
 
-    def train_step(self, dist_inputs, strategy):
-        def train_step(dist_inputs):
-            def step_fn(inputs):
-                images, labels = inputs
-                rpn_class_predict, rpn_regr_predict = self.model.call_networks(images, "rpn_class", "rpn_regr")
-                rpn_class_loss = self.loss_function(labels, rpn_class_predict, 1)
-                rpn_regr_loss = self.loss_function(labels, rpn_regr_predict, 1)
+    def train_step(self, dataset_inputs, augment, strategy):
+        def step_fn(inputs):
+            images, y_class, y_regr = inputs
+            rpn_class_predict, rpn_regr_predict = self.model.call_networks(images, "rpn_class", "rpn_regr")
 
-                rpn_class_train_op = self.optimizer.minimize(rpn_class_loss)
-                rpn_regr_train_op = self.optimizer.minimize(rpn_regr_loss)
+            rpn_class_loss = self.loss_function(y_class, rpn_class_predict, 1)
+            rpn_regr_loss = self.loss_function(y_regr, rpn_regr_predict, 1)
 
-                with tf.control_dependencies([rpn_class_train_op, rpn_regr_train_op]):
-                    return tf.identity(rpn_class_train_op + rpn_regr_train_op)
+            rpn_class_train_op = self.optimizer.minimize(rpn_class_loss)
+            rpn_regr_train_op = self.optimizer.minimize(rpn_regr_loss)
 
-            per_replica_losses = strategy.experimental_run_v2(
-                step_fn, args=(dist_inputs,))
-            mean_loss = strategy.reduce(
-                tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
-            return mean_loss
+            R = rpn_to_roi(rpn_class_predict, rpn_regr_predict, FasterRCNNConfig, 'tf', use_regr=True, overlap_thresh=0.7, max_boxes=300)
+            # note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
+            class_mapping = get_class_mapping()
+            X2, Y1, Y2, IouS = calc_iou(R, augment, FasterRCNNConfig, class_mapping)
+
+            if X2 is not None:
+                neg_samples = np.where(Y1[0, :, -1] == 1)
+                pos_samples = np.where(Y1[0, :, -1] == 0)
+
+                if len(neg_samples) > 0:
+                    neg_samples = neg_samples[0]
+                else:
+                    neg_samples = []
+
+                if len(pos_samples) > 0:
+                    pos_samples = pos_samples[0]
+                else:
+                    pos_samples = []
+
+                if FasterRCNNConfig.num_rois > 1:
+                    if len(pos_samples) < FasterRCNNConfig.num_rois // 2:
+                        selected_pos_samples = pos_samples.tolist()
+                    else:
+                        selected_pos_samples = np.random.choice(pos_samples, FasterRCNNConfig.num_rois // 2,
+                                                                replace=False).tolist()
+                    try:
+                        selected_neg_samples = np.random.choice(neg_samples,
+                                                                FasterRCNNConfig.num_rois - len(selected_pos_samples),
+                                                                replace=False).tolist()
+                    except:
+                        selected_neg_samples = np.random.choice(neg_samples,
+                                                                FasterRCNNConfig.num_rois - len(selected_pos_samples),
+                                                                replace=True).tolist()
+
+                    sel_samples = selected_pos_samples + selected_neg_samples
+                else:
+                    # in the extreme case where num_rois = 1, we pick a random pos or neg sample
+                    selected_pos_samples = pos_samples.tolist()
+                    selected_neg_samples = neg_samples.tolist()
+                    if np.random.randint(0, 2):
+                        sel_samples = random.choice(neg_samples)
+                    else:
+                        sel_samples = random.choice(pos_samples)
+
+                out_class_predict, out_regr_predict = self.model.call_networks(images, "out_class", "out_regr")
+                out_class_loss = self.loss_function(X2[:, sel_samples, :], out_class_predict, 1)
+                out_regr_loss = self.loss_function([Y1[:, sel_samples, :], Y2[:, sel_samples, :]], out_regr_predict, 1)
+
+                out_class_train_op = self.optimizer.minimize(rpn_class_loss)
+                out_regr_train_op = self.optimizer.minimize(rpn_regr_loss)
+
+                self.progbar.update(0 + 1, [('rpn_cls', rpn_class_loss),
+                                            ('rpn_regr', rpn_regr_loss),
+                                            ('detector_cls', out_class_loss),
+                                            ('detector_regr', out_regr_loss)])
+
+                with tf.control_dependencies([rpn_class_train_op, rpn_regr_train_op, out_class_train_op, out_regr_train_op]):
+                    return tf.identity(rpn_class_train_op + rpn_regr_train_op + out_class_train_op + out_regr_train_op)
+
+        per_replica_losses = strategy.experimental_run_v2(
+            step_fn, args=(dataset_inputs,))
+        mean_loss = strategy.reduce(
+            tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
+        return mean_loss
 
     def test_step(self, images, labels, batch_size):
         """One test step.
@@ -77,7 +134,7 @@ class Train(object):
         self.test_loss.update_state(loss)
         self.test_accuracy.update_state(labels, logits)
 
-    def training_loop(self, imgs, y_class, y_regr, augments, strategy):
+    def training_loop(self, train_dist_dataset, augments, strategy):
         """Custom training loop.
         Args:
           train_dist_dataset: Training dataset created using strategy.
@@ -85,27 +142,26 @@ class Train(object):
         Returns:
           train_loss
         """
-        @tf.function()
+
         def distributed_train_epoch(ds):
             total_loss = 0.0
             num_train_batches = 0.0
-            for images, labels in ds:
-                per_replica_loss = strategy.experimental_run_v2(
-                    self.train_step, args=(images, labels, strategy))
-                total_loss += strategy.reduce(
-                    tf.distribute.ReduceOp.SUM, per_replica_loss, axis=None)
-                num_train_batches += 1
-            return total_loss, num_train_batches
+            per_replica_loss = strategy.experimental_run_v2(
+                self.train_step, args=(ds, augments, strategy))
+            total_loss += strategy.reduce(
+                tf.distribute.ReduceOp.SUM, per_replica_loss, axis=None)
+            num_train_batches += 1
 
-        if self.enable_function:
-            distributed_train_epoch = tf.function(distributed_train_epoch)
+            return total_loss, num_train_batches
 
         template = 'Epoch: {}, Train Loss: {}, Train Accuracy: {}'
         train_total_loss = 0
         num_train_batches = 1
+        self.progbar = generic_utils.Progbar(self.epochs)
         for epoch in range(self.epochs):
-            train_total_loss, num_train_batches = distributed_train_epoch(train_dist_dataset)
-            print(template.format(epoch, train_total_loss / num_train_batches, self.training_accuracy.result() * 100))
+            for x in train_dist_dataset:
+                train_total_loss, num_train_batches = self.train_step(x, augments, strategy)
+                print(template.format(epoch, train_total_loss / num_train_batches, self.training_accuracy.result() * 100))
 
         return (train_total_loss / num_train_batches)
 
@@ -142,12 +198,11 @@ def main(model_name, epochs):
     strategy = tf.distribute.MirroredStrategy()
 
     with strategy.scope():
-
-        imgs, y_class, y_regr, augments = get_datasets(strategy, batch_size, model.get_img_output_length)
+        train_dist_dataset, augments = get_datasets(strategy, batch_size, model.get_img_output_length)
 
         train_obj = Train(epochs, False, model)
         print('Training ...')
-        return train_obj.training_loop(imgs, y_class, y_regr, augments, strategy)
+        return train_obj.training_loop(train_dist_dataset, augments, strategy)
 
 
 def train_model(model_name, argv):
